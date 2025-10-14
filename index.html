@@ -45,4 +45,227 @@
 
 <script type="module">
 const els = {
-  status: document.ge
+ status: document.getElementById('status'),
+  summary: document.getElementById('summary'),
+  ipgeo: document.getElementById('ipgeo'),
+  bandwidth: document.getElementById('bandwidth'),
+  regions: document.getElementById('regions'),
+  browser: document.getElementById('browser'),
+  raw: document.getElementById('raw'),
+};
+
+const BIG_FILE_URL = "./assets/test-20MB.bin";        // <-- put a ~10–50 MB file here
+const BIG_FILE_SIZE_BYTES = 20 * 1024 * 1024;         // <-- set exact size if different
+
+// Public endpoints to probe (small assets). We measure wall-clock ms using <img> so CORS isn’t required.
+// You can change or remove any that time out for you.
+const REGION_PROBES = [
+  { name: "EU (Frankfurt)", url: "https://voice-js.frankfurt.twilio.com/favicon.ico" },
+  { name: "EU (Dublin)",    url: "https://voice-js.dublin.twilio.com/favicon.ico" },
+  { name: "US East (VA)",   url: "https://voice-js.ashburn.twilio.com/favicon.ico" },
+  { name: "US West (OR)",   url: "https://www.gstatic.com/generate_204" }, // generic fast endpoint
+  { name: "São Paulo",      url: "https://voice-js.sao-paulo.twilio.com/favicon.ico" },
+  { name: "Singapore",      url: "https://voice-js.singapore.twilio.com/favicon.ico" },
+  { name: "Tokyo",          url: "https://voice-js.tokyo.twilio.com/favicon.ico" },
+  { name: "Sydney",         url: "https://voice-js.sydney.twilio.com/favicon.ico" },
+];
+
+// Utility: format Mbps
+const mbps = (bitsPerSec) => (bitsPerSec / 1e6).toFixed(2);
+
+// Utility: wait ms
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Minimal JSON logging helper
+function show(obj, el) { el.textContent = JSON.stringify(obj, null, 2); }
+
+// 1) IP / Geo / ISP with fallbacks
+async function getIpGeo() {
+  const sources = [
+    { name: "ipapi", url: "https://ipapi.co/json/" },
+    { name: "ipinfo", url: "https://ipinfo.io/json?token=" },  // add your token if you have one
+    { name: "ipify", url: "https://api64.ipify.org?format=json" }
+  ];
+  let lastErr = null;
+  for (const s of sources) {
+    try {
+      const t0 = performance.now();
+      const r = await fetch(s.url, { cache: "no-store" });
+      const t1 = performance.now();
+      if (!r.ok) { lastErr = `${s.name} ${r.status}`; continue; }
+      const j = await r.json();
+      const out = {
+        provider: s.name,
+        ms: Math.round(t1 - t0),
+        ip: j.ip || j.query || null,
+        city: j.city || null,
+        region: j.region || j.region_name || null,
+        country: j.country || j.country_name || null,
+        org: j.org || j.org_name || j.asn || j.as || null,
+      };
+      return out;
+    } catch (e) { lastErr = e.message || String(e); }
+  }
+  return { error: lastErr || "All IP providers failed" };
+}
+
+// 2) Bandwidth (download) — times a fetch of BIG_FILE_URL
+async function testDownload(url, sizeBytes) {
+  const controller = new AbortController();
+  const t0 = performance.now();
+  let ok = false, status = null;
+  try {
+    const resp = await fetch(url + "?_=" + Date.now(), { cache: "no-store", signal: controller.signal });
+    status = resp.status;
+    if (!resp.ok) throw new Error("HTTP " + status);
+    // Stream to completion to measure true time
+    const reader = resp.body.getReader();
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+    }
+    ok = true;
+    const t1 = performance.now();
+    const seconds = (t1 - t0) / 1000;
+    const usedBytes = (sizeBytes && sizeBytes > 0) ? sizeBytes : received;
+    const bps = (usedBytes * 8) / seconds;
+    return {
+      ok, status, seconds: +seconds.toFixed(3),
+      sizeBytes: usedBytes,
+      mbps: +mbps(bps)
+    };
+  } catch (e) {
+    controller.abort();
+    const t1 = performance.now();
+    return { ok, status, seconds: +((t1 - t0)/1000).toFixed(3), error: e.message || String(e) };
+  }
+}
+
+// 3) Regional latency — load small resources via <img> (no CORS timing details, but wall-clock is indicative)
+function imgProbe(url, timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const start = performance.now();
+    let done = false;
+    const settle = (ok) => {
+      if (done) return;
+      done = true;
+      const ms = Math.round(performance.now() - start);
+      resolve({ ok, ms });
+    };
+    const to = setTimeout(() => { img.src = ""; settle(false); }, timeoutMs);
+    img.onload = () => { clearTimeout(to); settle(true); };
+    img.onerror = () => { clearTimeout(to); settle(false); };
+    // Cache-buster
+    img.src = url + (url.includes("?") ? "&" : "?") + "_=" + Date.now();
+  });
+}
+
+async function testRegions() {
+  const results = [];
+  for (const p of REGION_PROBES) {
+    const { ok, ms } = await imgProbe(p.url, 6000);
+    results.push({ region: p.name, ms, ok });
+    // brief pause to avoid bursting
+    await sleep(150);
+  }
+  const sorted = results.slice().sort((a,b) => a.ms - b.ms);
+  return { best: sorted[0], all: results };
+}
+
+// 4) Browser / device info (includes Network Information API if present)
+async function browserInfo() {
+  const info = {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    language: navigator.language,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+    connection: null,
+    getUserMedia: null,
+    devices: null
+  };
+  // Network Information API
+  const nc = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (nc) {
+    info.connection = {
+      type: nc.type || null,
+      effectiveType: nc.effectiveType || null,
+      downlinkMbps: nc.downlink || null,
+      rttMs: nc.rtt || null,
+      saveData: !!nc.saveData
+    };
+  }
+  // Microphone permission + enumerate devices
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    info.getUserMedia = "ok";
+    stream.getTracks().forEach(t => t.stop());
+  } catch (e) {
+    info.getUserMedia = "error: " + (e.message || String(e));
+  }
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    info.devices = devs.map(d => ({ kind: d.kind, label: d.label || "(permission required)", deviceId: d.deviceId }));
+  } catch (e) {
+    info.devices = "enumerateDevices error: " + (e.message || String(e));
+  }
+  return info;
+}
+
+// 5) Small sanity fetch (repo README)
+async function tinyFetch() {
+  const t0 = performance.now();
+  try {
+    const r = await fetch("./README.md", { cache: "no-store" });
+    const t1 = performance.now();
+    return { ok: r.ok, status: r.status, ms: Math.round(t1 - t0) };
+  } catch (e) {
+    const t1 = performance.now();
+    return { ok: false, status: null, ms: Math.round(t1 - t0), error: e.message || String(e) };
+  }
+}
+
+// Main runner
+async function run() {
+  els.status.textContent = "running…";
+  const startedAt = new Date().toISOString();
+
+  const [ipgeo, bw, regions, browser, tiny] = await Promise.all([
+    getIpGeo(),
+    testDownload(BIG_FILE_URL, BIG_FILE_SIZE_BYTES),
+    testRegions(),
+    browserInfo(),
+    tinyFetch()
+  ]);
+
+  const finishedAt = new Date().toISOString();
+
+  // Summary & hints
+  const conn = browser.connection || {};
+  const onWifi = (conn.type === "wifi") || (conn.effectiveType && /^(3g|4g|5g|wifi)$/.test(conn.effectiveType));
+  const summary = {
+    startedAt, finishedAt,
+    ip: ipgeo.ip || null,
+    country: ipgeo.country || null,
+    downloadMbps: bw.ok ? bw.mbps : null,
+    bestRegion: regions.best ? regions.best.region : null,
+    networkHint: onWifi ? "Likely Wi-Fi/mobile; Ethernet is recommended for best stability." : "Wired/Ethernet or unknown.",
+  };
+
+  // Render
+  show(summary, els.summary);
+  show(ipgeo, els.ipgeo);
+  show(bw, els.bandwidth);
+  show(regions, els.regions);
+  show(browser, els.browser);
+  show({ summary, ipgeo, bandwidth: bw, regions, browser, tinyFetch: tiny }, els.raw);
+
+  els.status.innerHTML = '<span class="ok">done</span>';
+}
+
+document.getElementById('run').addEventListener('click', run);
+</script>
+</body>
+</html>

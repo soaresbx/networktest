@@ -42,7 +42,6 @@
       </div>
       <pre id="transport">—</pre>
     </div>
-    <div class="card"><h3>Raw JSON</h3><pre id="raw">—</pre></div>
   </div>
 
   <p class="muted">
@@ -58,7 +57,6 @@ const els = {
   bandwidth: document.getElementById('bandwidth'),
   regions: document.getElementById('regions'),
   browser: document.getElementById('browser'),
-  raw: document.getElementById('raw'),
   tStatus: document.getElementById('transport-status'),
   tOut: document.getElementById('transport'),
 };
@@ -337,42 +335,6 @@ async function transportSelfTest({ useMic = true } = {}) {
 
   showTransport(result);
   els.tStatus.innerHTML = connected ? '<span class="ok">done</span>' : '<span class="warn">timeout / not connected</span>';
-}
-
-// ---- Main runner (existing tests) ----
-async function run() {
-  els.status.textContent = "running…";
-  const startedAt = new Date().toISOString();
-
-  const [ipgeo, bw, regions, browser, tiny] = await Promise.all([
-    getIpGeo(),
-    testDownload(BIG_FILE_URL, BIG_FILE_SIZE_BYTES),
-    testRegions(),
-    browserInfo(),
-    tinyFetch()
-  ]);
-
-  const finishedAt = new Date().toISOString();
-
-  const conn = browser.connection || {};
-  const onWifi = (conn.type === "wifi") || (conn.effectiveType && /^(3g|4g|5g|wifi)$/.test(conn.effectiveType));
-  const summary = {
-    startedAt, finishedAt,
-    ip: ipgeo.ip || null,
-    country: ipgeo.country || null,
-    downloadMbps: bw.ok ? bw.mbps : null,
-    bestRegion: regions.best ? regions.best.region : null,
-    networkHint: onWifi ? "Likely Wi-Fi/mobile; Ethernet is recommended for best stability." : "Wired/Ethernet or unknown.",
-  };
-
-  show(summary, els.summary);
-  show(ipgeo, els.ipgeo);
-  show(bw, els.bandwidth);
-  show(regions, els.regions);
-  show(browser, els.browser);
-  show({ summary, ipgeo, bandwidth: bw, regions, browser, tinyFetch: tiny }, els.raw);
-
-  els.status.innerHTML = '<span class="ok">done</span>';
 }
 
 document.getElementById('run').addEventListener('click', run);

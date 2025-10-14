@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>RTC Check (Minimal)</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol'; margin: 2rem; }
+      .btn { cursor: pointer; padding: .6rem 1rem; border: 1px solid #ccc; border-radius: .5rem; background: #f6f6f6; }
+      .row { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+      pre { background: #0b1020; color: #e8f0fe; padding: 1rem; border-radius: .5rem; white-space: pre-wrap; word-wrap: break-word; }
+      small { color: #666; }
+      .ok { color: #0a7f2e; font-weight: 600; }
+      .err { color: #b00020; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <h1>RTC Check (Minimal Demo)</h1>
+    <p>This small page runs a few browser-side checks: user agent, getUserMedia permission, and device enumeration. You can extend it with bandwidth, TURN, and call-quality probes.</p>
+    <div class="row">
+      <button id="run" class="btn">Run checks</button>
+      <span id="status"><small>idle</small></span>
+    </div>
+    <pre id="out">Click "Run checks"…</pre>
+
+    <script type="module">
+      const out = document.getElementById('out');
+      const statusEl = document.getElementById('status');
+      const log = (o) => out.textContent = JSON.stringify(o, null, 2);
+
+      async function run() {
+        statusEl.innerHTML = '<span>running…</span>';
+        const result = {
+          startedAt: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          language: navigator.language,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null
+        };
+
+        // 1) getUserMedia test (audio only)
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          result.getUserMedia = { status: "ok" };
+          stream.getTracks().forEach(t => t.stop());
+        } catch (e) {
+          result.getUserMedia = { status: "error", message: e && e.message ? e.message : String(e) };
+        }
+
+        // 2) enumerate devices (labels require prior permission in modern browsers)
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          result.devices = devices.map(d => ({
+            kind: d.kind,
+            label: d.label || "(permission required)",
+            deviceId: d.deviceId
+          }));
+        } catch (e) {
+          result.devicesError = { message: e && e.message ? e.message : String(e) };
+        }
+
+        // 3) Simple DNS/HTTP reachability probe example (same-origin file)
+        try {
+          const t0 = performance.now();
+          const resp = await fetch("./README.md", { cache: "no-store" });
+          const t1 = performance.now();
+          result.sampleFetch = {
+            ok: resp.ok,
+            status: resp.status,
+            ms: Math.round(t1 - t0)
+          };
+        } catch (e) {
+          result.sampleFetch = { ok: false, message: e && e.message ? e.message : String(e) };
+        }
+
+        result.finishedAt = new Date().toISOString();
+        log(result);
+        statusEl.innerHTML = '<span class="ok">done</span>';
+      }
+
+      document.getElementById('run').addEventListener('click', run);
+    </script>
+  </body>
+</html>

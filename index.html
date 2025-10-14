@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Network Test (Track A)</title>
+  <title>Network Test (Alpha Version)</title>
   <style>
     :root { --bg:#0b1020; --fg:#e8f0fe; --muted:#9aa3b2; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial; margin: 24px; }
@@ -22,7 +22,7 @@
 </head>
 <body>
   <h1>Network Test (Track A)</h1>
-  <div class="muted">Client-side checks: IP/Geo, bandwidth (download), regional latency probes, device & browser info.</div>
+  <div class="muted">Checkpoints: IP/Geo, Bandwidth (download), Regional latency, Device & Browser info.</div>
 
   <div class="row">
     <button id="run">Run tests</button>
@@ -40,7 +40,6 @@
 
   <p class="muted">
     Notes: “Best Region” is an approximation based on resource load times to public endpoints; it’s not a TURN/media test.  
-    For MOS/RTT/jitter (call quality), you’ll need a short WebRTC session against media/TURN servers.
   </p>
 
 <script type="module">

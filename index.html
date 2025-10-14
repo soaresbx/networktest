@@ -22,7 +22,7 @@
 </head>
 <body>
   <h1>Network Test (Track A)</h1>
-  <div class="muted">Checkpoints: IP/Geo, Bandwidth (download), Regional latency, Device & Browser info, and WebRTC transport (UDP/TCP).</div>
+  <div class="muted">Checkpoints: IP/Geo, Bandwidth (download), Regional latency, Device & Browser info, WebRTC transport (UDP/TCP), and DNS lookups (approx).</div>
 
   <div class="row">
     <button id="run">Run tests</button>
@@ -45,11 +45,24 @@
       </div>
       <pre id="transport">—</pre>
     </div>
+
+    <!-- NEW: DNS Lookup card -->
+    <div class="card">
+      <h3>DNS Lookup (approx)</h3>
+      <div class="row">
+        <button id="run-dns">Run DNS lookups</button>
+        <span id="dns-status" class="muted">idle</span>
+      </div>
+      <pre id="dns">—</pre>
+      <div class="muted" style="margin-top:6px">
+        Notes: results are based on HTTP request completion time (<code>fetch</code> with <code>no-cors</code>). “blocked: true” means the request errored or timed out; this approximates DNS/connection reachability but is not raw DNS timing.
+      </div>
+    </div>
   </div>
 
   <p class="muted">
-    Notes: “Best Region” is an approximation based on resource load times to public endpoints; it’s not a TURN/media test.
-    The WebRTC transport test creates a local peer connection to reveal the selected transport (<code>udp</code> or <code>tcp</code>) and candidate types. It does not contact your provider’s media edges.
+    “Best Region” uses public endpoints and measures wall-clock load time; not a TURN/media test.
+    The WebRTC transport test builds a local peer connection to reveal selected transport (<code>udp</code> or <code>tcp</code>) and candidate types; it doesn’t contact your provider’s edges.
   </p>
 
 <script type="module">
@@ -63,9 +76,12 @@ const els = {
   // Transport UI
   tStatus: document.getElementById('transport-status'),
   tOut: document.getElementById('transport'),
+  // DNS UI
+  dnsStatus: document.getElementById('dns-status'),
+  dnsOut: document.getElementById('dns'),
 };
 
-const BIG_FILE_URL = "./assets/test-20MB.bin";        // <-- put a ~10–50 MB file here
+const BIG_FILE_URL = "./assets/test-20MB.bin";        // <-- put a ~10–50 MB file here or mp3
 const BIG_FILE_SIZE_BYTES = 20 * 1024 * 1024;         // <-- set exact size if different
 
 // Public endpoints to probe (small assets).
@@ -78,6 +94,49 @@ const REGION_PROBES = [
   { name: "Singapore",      url: "https://voice-js.singapore.twilio.com/favicon.ico" },
   { name: "Tokyo",          url: "https://voice-js.tokyo.twilio.com/favicon.ico" },
   { name: "Sydney",         url: "https://voice-js.sydney.twilio.com/favicon.ico" },
+];
+
+// === NEW: DNS lookup list (your exact domains) ===
+const DNS_DOMAINS = [
+  "https://eventgw.twilio.com",
+  "https://voice-js.roaming.twilio.com",
+  "https://voice-js.ashburn.twilio.com",
+  "https://voice-js.umatilla.twilio.com",
+  "https://voice-js.sao-paulo.twilio.com",
+  "https://voice-js.frankfurt.twilio.com",
+  "https://voice-js.dublin.twilio.com",
+  "https://voice-js.sydney.twilio.com",
+  "https://voice-js.singapore.twilio.com",
+  "https://voice-js.tokyo.twilio.com",
+  "https://tsock.us1.twilio.com",
+  "https://media.us1.twilio.com",
+  "https://mcs.us1.twilio.com",
+  "https://sdk.twilio.com",
+  "https://media.twiliocdn.com",
+  "https://ws.pusherapp.com",
+  "https://js.pusher.com",
+  "https://ws-ap1.pusher.com",
+  "https://ws-ap2.pusher.com",
+  "https://ws-ap3.pusher.com",
+  "https://ws-ap4.pusher.com",
+  "https://ws-eu.pusher.com",
+  "https://ws-mt1.pusher.com",
+  "https://ws-us2.pusher.com",
+  "https://ws-us3.pusher.com",
+  "https://sockjs.pusher.com",
+  "https://sdk.split.io",
+  "https://events.split.io",
+  "https://cdn.lrkt-in.com",
+  "https://talkdesk.mytalkdesk.com/atlas/",
+  "https://talkdesk.talkdeskid.com",
+  "https://support.talkdesk.com/hc/en-us",
+  "https://prd-cdn-talkdesk.talkdesk.com",
+  "https://conversationapp.svc.talkdeskapp.com",
+  "https://api.nettest.testrtc.com",
+  "https://streamrec.eyeson.com",
+  "https://td-prd-recordings.s3.amazonaws.com",
+  "https://td-prd-recordings.s3.eu-central-1.amazonaws.com",
+  "https://td-prd-recordings.s3.ca-central-1.amazonaws.com",
 ];
 
 // Utility: format Mbps
@@ -198,7 +257,7 @@ async function browserInfo() {
     info.getUserMedia = "ok";
     stream.getTracks().forEach(t => t.stop());
   } catch (e) {
-    info.getUserMedia = "error: " + (e.message || String(e) };
+    info.getUserMedia = "error: " + (e.message || String(e));
   }
   try {
     const devs = await navigator.mediaDevices.enumerateDevices();
@@ -310,7 +369,7 @@ async function transportSelfTest({ useMic = true } = {}) {
       } : null,
       localCandidate: local ? {
         candidateType: local.candidateType,
-        protocol: local.protocol,           // 'udp' or 'tcp'
+        protocol: local.protocol,
         networkType: local.networkType || null,
         relayProtocol: local.relayProtocol || null,
         address: local.address || local.ip || null,
@@ -318,7 +377,7 @@ async function transportSelfTest({ useMic = true } = {}) {
       } : null,
       remoteCandidate: remote ? {
         candidateType: remote.candidateType,
-        protocol: remote.protocol,          // 'udp' or 'tcp'
+        protocol: remote.protocol,
         address: remote.address || remote.ip || null,
         port: remote.port || null,
       } : null,
@@ -343,6 +402,46 @@ async function transportSelfTest({ useMic = true } = {}) {
 
   showTransport(result);
   els.tStatus.innerHTML = connected ? '<span class="ok">done</span>' : '<span class="warn">timeout / not connected</span>';
+}
+
+// ----- NEW: DNS lookups (approx) -----
+function showDns(obj) { els.dnsOut.textContent = JSON.stringify(obj, null, 2); }
+
+async function probeHttp(url, timeoutMs = 7000) {
+  const ctrl = new AbortController();
+  const t0 = performance.now();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    // no-cors so it resolves even if CORS disallows reading the response
+    await fetch(url + (url.includes("?") ? "&" : "?") + "_=" + Date.now(), {
+      mode: "no-cors",
+      cache: "no-store",
+      signal: ctrl.signal,
+    });
+    const t1 = performance.now();
+    clearTimeout(timer);
+    return { domain: url, requestTime: Math.round(t1 - t0), blocked: false };
+  } catch (e) {
+    const t1 = performance.now();
+    clearTimeout(timer);
+    return { domain: url, requestTime: Math.round(t1 - t0), blocked: true, error: e.message || String(e) };
+  }
+}
+
+// Run sequentially to avoid hammering the network; you can parallelize in small batches if preferred.
+async function runDnsLookups() {
+  els.dnsStatus.textContent = "running…";
+  const results = [];
+  for (const url of DNS_DOMAINS) {
+    const r = await probeHttp(url, 8000);
+    results.push(r);
+    // tiny delay to avoid bursting
+    await sleep(100);
+  }
+  // Sort by requestTime ascending (fastest first), like your sample view
+  results.sort((a,b) => a.requestTime - b.requestTime);
+  showDns({ checkedAt: new Date().toISOString(), total: results.length, results });
+  els.dnsStatus.innerHTML = '<span class="ok">done</span>';
 }
 
 // ---- Main runner (existing tests) ----
@@ -382,6 +481,7 @@ async function run() {
 
 document.getElementById('run').addEventListener('click', run);
 document.getElementById('run-transport').addEventListener('click', () => transportSelfTest({ useMic: true }));
+document.getElementById('run-dns').addEventListener('click', runDnsLookups);
 </script>
 </body>
 </html>

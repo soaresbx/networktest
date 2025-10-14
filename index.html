@@ -35,8 +35,7 @@
     <div class="card"><h3>Bandwidth (Download)</h3><pre id="bandwidth">—</pre></div>
     <div class="card"><h3>Best Region (approx)</h3><pre id="regions">—</pre></div>
     <div class="card"><h3>Browser / Device</h3><pre id="browser">—</pre></div>
-    <div class="card">
-      <h3>Transport (WebRTC)</h3>
+    <div class="card"><h3>Transport (WebRTC)</h3>
       <div class="row">
         <button id="run-transport">Run transport test</button>
         <span id="transport-status" class="muted">idle</span>
@@ -60,15 +59,12 @@ const els = {
   regions: document.getElementById('regions'),
   browser: document.getElementById('browser'),
   raw: document.getElementById('raw'),
-  // Transport UI
   tStatus: document.getElementById('transport-status'),
   tOut: document.getElementById('transport'),
 };
 
 const BIG_FILE_URL = "./assets/test-20MB.bin";        // <-- put a ~10–50 MB file here
 const BIG_FILE_SIZE_BYTES = 20 * 1024 * 1024;         // <-- set exact size if different
-
-// Public endpoints to probe (small assets).
 const REGION_PROBES = [
   { name: "EU (Frankfurt)", url: "https://voice-js.frankfurt.twilio.com/favicon.ico" },
   { name: "EU (Dublin)",    url: "https://voice-js.dublin.twilio.com/favicon.ico" },
@@ -79,8 +75,6 @@ const REGION_PROBES = [
   { name: "Tokyo",          url: "https://voice-js.tokyo.twilio.com/favicon.ico" },
   { name: "Sydney",         url: "https://voice-js.sydney.twilio.com/favicon.ico" },
 ];
-
-// Utility: format Mbps
 const mbps = (bitsPerSec) => (bitsPerSec / 1e6).toFixed(2);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 function show(obj, el) { el.textContent = JSON.stringify(obj, null, 2); }

@@ -21,7 +21,7 @@
   </style>
 </head>
 <body>
-  <h1>Network Test (Alpha Version)</h1>
+  <h1>Network Test (Track A)</h1>
   <div class="muted">Checkpoints: IP/Geo, Bandwidth (download), Regional latency, Device & Browser info, and WebRTC transport (UDP/TCP).</div>
 
   <div class="row">
@@ -35,7 +35,10 @@
     <div class="card"><h3>Bandwidth (Download)</h3><pre id="bandwidth">—</pre></div>
     <div class="card"><h3>Best Region (approx)</h3><pre id="regions">—</pre></div>
     <div class="card"><h3>Browser / Device</h3><pre id="browser">—</pre></div>
-    <div class="card"><h3>Transport (WebRTC)</h3>
+
+    <!-- WebRTC transport card -->
+    <div class="card">
+      <h3>Transport (WebRTC)</h3>
       <div class="row">
         <button id="run-transport">Run transport test</button>
         <span id="transport-status" class="muted">idle</span>
@@ -57,12 +60,15 @@ const els = {
   bandwidth: document.getElementById('bandwidth'),
   regions: document.getElementById('regions'),
   browser: document.getElementById('browser'),
+  // Transport UI
   tStatus: document.getElementById('transport-status'),
   tOut: document.getElementById('transport'),
 };
 
 const BIG_FILE_URL = "./assets/test-20MB.bin";        // <-- put a ~10–50 MB file here
 const BIG_FILE_SIZE_BYTES = 20 * 1024 * 1024;         // <-- set exact size if different
+
+// Public endpoints to probe (small assets).
 const REGION_PROBES = [
   { name: "EU (Frankfurt)", url: "https://voice-js.frankfurt.twilio.com/favicon.ico" },
   { name: "EU (Dublin)",    url: "https://voice-js.dublin.twilio.com/favicon.ico" },
@@ -73,6 +79,8 @@ const REGION_PROBES = [
   { name: "Tokyo",          url: "https://voice-js.tokyo.twilio.com/favicon.ico" },
   { name: "Sydney",         url: "https://voice-js.sydney.twilio.com/favicon.ico" },
 ];
+
+// Utility: format Mbps
 const mbps = (bitsPerSec) => (bitsPerSec / 1e6).toFixed(2);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 function show(obj, el) { el.textContent = JSON.stringify(obj, null, 2); }
@@ -190,7 +198,7 @@ async function browserInfo() {
     info.getUserMedia = "ok";
     stream.getTracks().forEach(t => t.stop());
   } catch (e) {
-    info.getUserMedia = "error: " + (e.message || String(e));
+    info.getUserMedia = "error: " + (e.message || String(e) };
   }
   try {
     const devs = await navigator.mediaDevices.enumerateDevices();
@@ -214,7 +222,7 @@ async function tinyFetch() {
   }
 }
 
-// ----- NEW: WebRTC transport (UDP/TCP) self-test -----
+// ----- WebRTC transport (UDP/TCP) self-test -----
 function showTransport(obj) { els.tOut.textContent = JSON.stringify(obj, null, 2); }
 
 async function transportSelfTest({ useMic = true } = {}) {
@@ -335,6 +343,41 @@ async function transportSelfTest({ useMic = true } = {}) {
 
   showTransport(result);
   els.tStatus.innerHTML = connected ? '<span class="ok">done</span>' : '<span class="warn">timeout / not connected</span>';
+}
+
+// ---- Main runner (existing tests) ----
+async function run() {
+  els.status.textContent = "running…";
+  const startedAt = new Date().toISOString();
+
+  const [ipgeo, bw, regions, browser, tiny] = await Promise.all([
+    getIpGeo(),
+    testDownload(BIG_FILE_URL, BIG_FILE_SIZE_BYTES),
+    testRegions(),
+    browserInfo(),
+    tinyFetch()
+  ]);
+
+  const finishedAt = new Date().toISOString();
+
+  const conn = browser.connection || {};
+  const onWifi = (conn.type === "wifi") || (conn.effectiveType && /^(3g|4g|5g|wifi)$/.test(conn.effectiveType));
+  const summary = {
+    startedAt, finishedAt,
+    ip: ipgeo.ip || null,
+    country: ipgeo.country || null,
+    downloadMbps: bw.ok ? bw.mbps : null,
+    bestRegion: regions.best ? regions.best.region : null,
+    networkHint: onWifi ? "Likely Wi-Fi/mobile; Ethernet is recommended for best stability." : "Wired/Ethernet or unknown.",
+  };
+
+  show(summary, els.summary);
+  show(ipgeo, els.ipgeo);
+  show(bw, els.bandwidth);
+  show(regions, els.regions);
+  show(browser, els.browser);
+
+  els.status.innerHTML = '<span class="ok">done</span>';
 }
 
 document.getElementById('run').addEventListener('click', run);

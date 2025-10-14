@@ -21,8 +21,8 @@
   </style>
 </head>
 <body>
-  <h1>Network Test (Track A)</h1>
-  <div class="muted">Checkpoints: IP/Geo, Bandwidth (download), Regional latency, Device & Browser info.</div>
+  <h1>Network Test (Alpha Version)</h1>
+  <div class="muted">Checkpoints: IP/Geo, Bandwidth (download), Regional latency, Device & Browser info, and WebRTC transport (UDP/TCP).</div>
 
   <div class="row">
     <button id="run">Run tests</button>
@@ -35,34 +35,48 @@
     <div class="card"><h3>Bandwidth (Download)</h3><pre id="bandwidth">—</pre></div>
     <div class="card"><h3>Best Region (approx)</h3><pre id="regions">—</pre></div>
     <div class="card"><h3>Browser / Device</h3><pre id="browser">—</pre></div>
+
+    <!-- NEW: WebRTC transport card -->
+    <div class="card">
+      <h3>Transport (WebRTC)</h3>
+      <div class="row">
+        <button id="run-transport">Run transport test</button>
+        <span id="transport-status" class="muted">idle</span>
+      </div>
+      <pre id="transport">—</pre>
+    </div>
+
     <div class="card"><h3>Raw JSON</h3><pre id="raw">—</pre></div>
   </div>
 
   <p class="muted">
-    Notes: “Best Region” is an approximation based on resource load times to public endpoints; it’s not a TURN/media test.  
+    Notes: “Best Region” is an approximation based on resource load times to public endpoints; it’s not a TURN/media test.
+    The WebRTC transport test creates a local peer connection to reveal the selected transport (<code>udp</code> or <code>tcp</code>) and candidate types. It does not contact your provider’s media edges.
   </p>
 
 <script type="module">
 const els = {
- status: document.getElementById('status'),
+  status: document.getElementById('status'),
   summary: document.getElementById('summary'),
   ipgeo: document.getElementById('ipgeo'),
   bandwidth: document.getElementById('bandwidth'),
   regions: document.getElementById('regions'),
   browser: document.getElementById('browser'),
   raw: document.getElementById('raw'),
+  // Transport UI
+  tStatus: document.getElementById('transport-status'),
+  tOut: document.getElementById('transport'),
 };
 
 const BIG_FILE_URL = "./assets/test-20MB.bin";        // <-- put a ~10–50 MB file here
 const BIG_FILE_SIZE_BYTES = 20 * 1024 * 1024;         // <-- set exact size if different
 
-// Public endpoints to probe (small assets). We measure wall-clock ms using <img> so CORS isn’t required.
-// You can change or remove any that time out for you.
+// Public endpoints to probe (small assets).
 const REGION_PROBES = [
   { name: "EU (Frankfurt)", url: "https://voice-js.frankfurt.twilio.com/favicon.ico" },
   { name: "EU (Dublin)",    url: "https://voice-js.dublin.twilio.com/favicon.ico" },
   { name: "US East (VA)",   url: "https://voice-js.ashburn.twilio.com/favicon.ico" },
-  { name: "US West (OR)",   url: "https://www.gstatic.com/generate_204" }, // generic fast endpoint
+  { name: "US West (OR)",   url: "https://www.gstatic.com/generate_204" },
   { name: "São Paulo",      url: "https://voice-js.sao-paulo.twilio.com/favicon.ico" },
   { name: "Singapore",      url: "https://voice-js.singapore.twilio.com/favicon.ico" },
   { name: "Tokyo",          url: "https://voice-js.tokyo.twilio.com/favicon.ico" },
@@ -71,11 +85,7 @@ const REGION_PROBES = [
 
 // Utility: format Mbps
 const mbps = (bitsPerSec) => (bitsPerSec / 1e6).toFixed(2);
-
-// Utility: wait ms
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-// Minimal JSON logging helper
 function show(obj, el) { el.textContent = JSON.stringify(obj, null, 2); }
 
 // 1) IP / Geo / ISP with fallbacks
@@ -93,7 +103,7 @@ async function getIpGeo() {
       const t1 = performance.now();
       if (!r.ok) { lastErr = `${s.name} ${r.status}`; continue; }
       const j = await r.json();
-      const out = {
+      return {
         provider: s.name,
         ms: Math.round(t1 - t0),
         ip: j.ip || j.query || null,
@@ -102,13 +112,12 @@ async function getIpGeo() {
         country: j.country || j.country_name || null,
         org: j.org || j.org_name || j.asn || j.as || null,
       };
-      return out;
     } catch (e) { lastErr = e.message || String(e); }
   }
   return { error: lastErr || "All IP providers failed" };
 }
 
-// 2) Bandwidth (download) — times a fetch of BIG_FILE_URL
+// 2) Bandwidth (download)
 async function testDownload(url, sizeBytes) {
   const controller = new AbortController();
   const t0 = performance.now();
@@ -117,7 +126,6 @@ async function testDownload(url, sizeBytes) {
     const resp = await fetch(url + "?_=" + Date.now(), { cache: "no-store", signal: controller.signal });
     status = resp.status;
     if (!resp.ok) throw new Error("HTTP " + status);
-    // Stream to completion to measure true time
     const reader = resp.body.getReader();
     let received = 0;
     for (;;) {
@@ -130,11 +138,7 @@ async function testDownload(url, sizeBytes) {
     const seconds = (t1 - t0) / 1000;
     const usedBytes = (sizeBytes && sizeBytes > 0) ? sizeBytes : received;
     const bps = (usedBytes * 8) / seconds;
-    return {
-      ok, status, seconds: +seconds.toFixed(3),
-      sizeBytes: usedBytes,
-      mbps: +mbps(bps)
-    };
+    return { ok, status, seconds: +seconds.toFixed(3), sizeBytes: usedBytes, mbps: +mbps(bps) };
   } catch (e) {
     controller.abort();
     const t1 = performance.now();
@@ -142,7 +146,7 @@ async function testDownload(url, sizeBytes) {
   }
 }
 
-// 3) Regional latency — load small resources via <img> (no CORS timing details, but wall-clock is indicative)
+// 3) Regional latency
 function imgProbe(url, timeoutMs = 5000) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -157,24 +161,21 @@ function imgProbe(url, timeoutMs = 5000) {
     const to = setTimeout(() => { img.src = ""; settle(false); }, timeoutMs);
     img.onload = () => { clearTimeout(to); settle(true); };
     img.onerror = () => { clearTimeout(to); settle(false); };
-    // Cache-buster
     img.src = url + (url.includes("?") ? "&" : "?") + "_=" + Date.now();
   });
 }
-
 async function testRegions() {
   const results = [];
   for (const p of REGION_PROBES) {
     const { ok, ms } = await imgProbe(p.url, 6000);
     results.push({ region: p.name, ms, ok });
-    // brief pause to avoid bursting
     await sleep(150);
   }
   const sorted = results.slice().sort((a,b) => a.ms - b.ms);
   return { best: sorted[0], all: results };
 }
 
-// 4) Browser / device info (includes Network Information API if present)
+// 4) Browser / device info
 async function browserInfo() {
   const info = {
     userAgent: navigator.userAgent,
@@ -185,7 +186,6 @@ async function browserInfo() {
     getUserMedia: null,
     devices: null
   };
-  // Network Information API
   const nc = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   if (nc) {
     info.connection = {
@@ -196,7 +196,6 @@ async function browserInfo() {
       saveData: !!nc.saveData
     };
   }
-  // Microphone permission + enumerate devices
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     info.getUserMedia = "ok";
@@ -226,7 +225,130 @@ async function tinyFetch() {
   }
 }
 
-// Main runner
+// ----- NEW: WebRTC transport (UDP/TCP) self-test -----
+function showTransport(obj) { els.tOut.textContent = JSON.stringify(obj, null, 2); }
+
+async function transportSelfTest({ useMic = true } = {}) {
+  els.tStatus.textContent = 'running…';
+
+  const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+  const pc1 = new RTCPeerConnection({ iceServers });
+  const pc2 = new RTCPeerConnection({ iceServers });
+
+  let stream;
+  try {
+    if (useMic) {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getAudioTracks().forEach(t => pc1.addTrack(t, stream));
+    } else {
+      pc1.createDataChannel('ping');
+    }
+  } catch (e) {
+    showTransport({ error: 'getUserMedia failed', message: e.message || String(e) });
+    els.tStatus.innerHTML = '<span class="err">failed</span>';
+    return;
+  }
+
+  pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate).catch(()=>{});
+  pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate).catch(()=>{});
+  pc2.ontrack = () => {};
+
+  const offer = await pc1.createOffer({ offerToReceiveAudio: true });
+  await pc1.setLocalDescription(offer);
+  await pc2.setRemoteDescription(offer);
+  const answer = await pc2.createAnswer();
+  await pc2.setLocalDescription(answer);
+  await pc1.setRemoteDescription(answer);
+
+  const timeoutMs = 8000;
+  const connected = await new Promise(resolve => {
+    const to = setTimeout(() => resolve(false), timeoutMs);
+    function check() {
+      if (pc1.connectionState === 'connected' || pc1.iceConnectionState === 'connected') {
+        clearTimeout(to); resolve(true);
+      }
+    }
+    pc1.onconnectionstatechange = check;
+    pc1.oniceconnectionstatechange = check;
+    setTimeout(check, 500);
+  });
+
+  async function collectStats() {
+    const stats = await pc1.getStats();
+    let pair, local, remote, transport, audio;
+
+    stats.forEach(report => {
+      if (report.type === 'transport' && report.selectedCandidatePairId) {
+        transport = report;
+      }
+    });
+    stats.forEach(report => {
+      if (report.type === 'candidate-pair' && report.nominated && report.state === 'succeeded') {
+        pair = report;
+      }
+    });
+    if (!pair && transport && stats.has(transport.selectedCandidatePairId)) {
+      pair = stats.get(transport.selectedCandidatePairId);
+    }
+    if (pair) {
+      local = stats.get(pair.localCandidateId);
+      remote = stats.get(pair.remoteCandidateId);
+    }
+    stats.forEach(r => {
+      if (r.type === 'inbound-rtp' && r.kind === 'audio') audio = r;
+    });
+
+    return {
+      state: {
+        connectionState: pc1.connectionState,
+        iceConnectionState: pc1.iceConnectionState,
+        connected,
+      },
+      selectedCandidatePair: pair ? {
+        state: pair.state,
+        nominated: pair.nominated,
+        currentRoundTripTime: pair.currentRoundTripTime,
+        totalRoundTripTime: pair.totalRoundTripTime,
+      } : null,
+      localCandidate: local ? {
+        candidateType: local.candidateType,
+        protocol: local.protocol,           // 'udp' or 'tcp'
+        networkType: local.networkType || null,
+        relayProtocol: local.relayProtocol || null,
+        address: local.address || local.ip || null,
+        port: local.port || null,
+      } : null,
+      remoteCandidate: remote ? {
+        candidateType: remote.candidateType,
+        protocol: remote.protocol,          // 'udp' or 'tcp'
+        address: remote.address || remote.ip || null,
+        port: remote.port || null,
+      } : null,
+      inboundAudio: audio ? {
+        jitter: audio.jitter,
+        packetsLost: audio.packetsLost,
+        jitterBufferDelay: audio.jitterBufferDelay,
+      } : null
+    };
+  }
+
+  let result;
+  try {
+    result = await collectStats();
+  } catch (e) {
+    result = { error: 'getStats failed', message: e.message || String(e) };
+  }
+
+  try { pc1.getSenders().forEach(s => s.track && s.track.stop()); } catch {}
+  try { stream && stream.getTracks().forEach(t => t.stop()); } catch {}
+  pc1.close(); pc2.close();
+
+  showTransport(result);
+  els.tStatus.innerHTML = connected ? '<span class="ok">done</span>' : '<span class="warn">timeout / not connected</span>';
+}
+
+// ---- Main runner (existing tests) ----
 async function run() {
   els.status.textContent = "running…";
   const startedAt = new Date().toISOString();
@@ -241,7 +363,6 @@ async function run() {
 
   const finishedAt = new Date().toISOString();
 
-  // Summary & hints
   const conn = browser.connection || {};
   const onWifi = (conn.type === "wifi") || (conn.effectiveType && /^(3g|4g|5g|wifi)$/.test(conn.effectiveType));
   const summary = {
@@ -253,7 +374,6 @@ async function run() {
     networkHint: onWifi ? "Likely Wi-Fi/mobile; Ethernet is recommended for best stability." : "Wired/Ethernet or unknown.",
   };
 
-  // Render
   show(summary, els.summary);
   show(ipgeo, els.ipgeo);
   show(bw, els.bandwidth);
@@ -265,6 +385,7 @@ async function run() {
 }
 
 document.getElementById('run').addEventListener('click', run);
+document.getElementById('run-transport').addEventListener('click', () => transportSelfTest({ useMic: true }));
 </script>
 </body>
 </html>

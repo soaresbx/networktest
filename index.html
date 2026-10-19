@@ -1,34 +1,38 @@
+The full updated code is below, ready to paste over your current `index.html`. In your repo on GitHub, open `index.html`, click the pencil icon, select everything and paste this in, then commit. Hard-refresh the page about a minute later. The same file is also attached as `index.html` (the file card in this chat) if you'd rather download it.
+
+```html
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Network Readiness Test</title>
-  <!-- Google Sans + Google Sans Code: SIL Open Font License 1.1 (free for commercial use) -->
+<!-- Google Sans + Google Sans Code: SIL Open Font License 1.1 (free for commercial use) -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Google+Sans+Code:wght@400;500&display=swap" />
 <style>
   :root {
     --bg:#f6f7f9; --surface:#ffffff; --text:#16181d; --muted:#5d6472; --border:#e2e5ea;
-    --accent:#00a676; --accent-ink:#ffffff; --code-bg:#f1f3f6;
-    --pass:#0a7f4f; --pass-bg:#e5f5ee;
+    --accent:#1f5fd1; --accent-ink:#ffffff; --code-bg:#f1f3f6;
+    /* Successful checks are blue, not green: a passing synthetic test is not a guarantee. */
+    --pass:#1d5fbf; --pass-bg:#e7effb;
     --warn:#975a00; --warn-bg:#fff2d9;
     --fail:#b42318; --fail-bg:#fde7e5;
-    --skip:#5d6472; --skip-bg:#eceef2;
-    --info:#1d5fbf; --info-bg:#e7effb;
+    --skip:#7a818e; --skip-bg:#f1f2f5;
+    --info:#5d6472; --info-bg:#eceef2;
     --font-sans:"Google Sans",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     --font-code:"Google Sans Code",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg:#0f1115; --surface:#171a21; --text:#e8eaef; --muted:#9aa2b1; --border:#2a2f3a;
-      --accent:#1fc28f; --accent-ink:#06120d; --code-bg:#11141a;
-      --pass:#4ad295; --pass-bg:#0f2a1f;
+      --accent:#6ea2ff; --accent-ink:#0a1222; --code-bg:#11141a;
+      --pass:#83b3ff; --pass-bg:#14223a;
       --warn:#f5b54a; --warn-bg:#2e230c;
       --fail:#ff7b70; --fail-bg:#35160f;
-      --skip:#9aa2b1; --skip-bg:#22262f;
-      --info:#83b3ff; --info-bg:#14223a;
+      --skip:#7f8796; --skip-bg:#1c2028;
+      --info:#9aa2b1; --info-bg:#22262f;
     }
   }
   * { box-sizing: border-box; }
@@ -68,7 +72,7 @@
   .pill.pass { color:var(--pass); background:var(--pass-bg); }
   .pill.warn { color:var(--warn); background:var(--warn-bg); }
   .pill.fail { color:var(--fail); background:var(--fail-bg); }
-  .pill.skip { color:var(--skip); background:var(--skip-bg); }
+  .pill.skip { color:var(--skip); background:var(--skip-bg); box-shadow:inset 0 0 0 1px var(--border); }
   .pill.info { color:var(--info); background:var(--info-bg); }
   .ctitle { font-weight:600; }
   .csum { color:var(--muted); overflow-wrap:anywhere; }
@@ -80,11 +84,20 @@
   th, td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--border); vertical-align:top; overflow-wrap:anywhere; }
   th { color:var(--muted); font-weight:600; }
   td.st-pass { color:var(--pass); } td.st-fail { color:var(--fail); } td.st-warn { color:var(--warn); }
+  .monitor { margin-top:28px; }
+  .card-title { font-size:18px; margin:0 0 4px; }
+  .muted { color:var(--muted); margin:0; max-width:75ch; }
+  select { font:inherit; padding:.5rem .6rem; border-radius:9px; border:1px solid var(--border); background:var(--surface); color:var(--text); }
+  label.inline { display:flex; align-items:center; gap:8px; color:var(--muted); }
+  #mon-chart { display:block; width:100%; height:180px; margin-top:12px; }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:var(--muted); margin:6px 0 4px; }
+  .legend i { display:inline-block; width:14px; height:3px; border-radius:2px; vertical-align:middle; margin-right:5px; }
+  #mon-checks { margin-top:12px; }
   .about { margin-top:28px; }
   .about summary { cursor:pointer; font-weight:600; }
   .about li { margin:4px 0; }
   code { font-family:var(--font-code); background:var(--code-bg); padding:1px 5px; border-radius:5px; font-size:.9em; }
-.tablewrap td { font-family:var(--font-code); font-size:12.5px; }
+  .tablewrap td { font-family:var(--font-code); font-size:12.5px; }
   @media (max-width:520px) { .check { grid-template-columns:1fr; gap:6px; } .pill { width:56px; } }
 </style>
 </head>
@@ -118,6 +131,35 @@
 
   <div id="sections"></div>
 
+  <section class="card monitor">
+    <h2 class="card-title">Extended monitor</h2>
+    <p class="muted">Intermittent problems (brief dropouts, robotic audio, Wi-Fi roaming) rarely show up in a one-minute test.
+      This monitor checks the connection four times per second and keeps a signalling connection open, like the Aircall app does.
+      Run it at the time problems usually happen, keep this tab visible, and keep using the network as normal.</p>
+    <div class="actions">
+      <label class="inline">Duration
+        <select id="mon-duration">
+          <option value="2">2 minutes</option>
+          <option value="5" selected>5 minutes</option>
+          <option value="10">10 minutes</option>
+        </select>
+      </label>
+      <button id="mon-start" class="primary">Start monitor</button>
+      <button id="mon-stop" disabled>Stop early</button>
+    </div>
+    <div class="progress"><div class="bar" id="mon-bar"></div></div>
+    <div class="step" id="mon-step"></div>
+    <div id="mon-viz" hidden>
+      <canvas id="mon-chart" role="img" aria-label="Latency over time"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--pass)"></i>Latency</span>
+        <span><i style="background:var(--warn)"></i>Spike threshold / spikes</span>
+        <span><i style="background:var(--fail)"></i>No reply / failed</span>
+      </div>
+    </div>
+    <div class="checks" id="mon-checks"></div>
+  </section>
+
   <details class="card about">
     <summary>What this test checks, and its limits</summary>
     <ul>
@@ -127,8 +169,11 @@
       <li><b>Voice regions</b>: HTTPS round-trip time to each Twilio voice edge (<code>voice-js.&lt;edge&gt;.twilio.com</code>). This is approximate and includes a little server time.</li>
       <li><b>Latency, jitter and loss</b>: repeated small requests to the nearest Cloudflare server, which measures your own connection. Jitter here is measured over HTTPS and runs higher than real call audio would show, so the thresholds are lenient.</li>
       <li><b>Speed and latency under load</b>: download/upload throughput plus how much latency rises while the line is busy (“bufferbloat”). Rising latency under load is a common cause of calls breaking up when someone else on the network is uploading or downloading.</li>
-      <li><b>Not covered</b>: real voice packet loss (this needs a media server), SIP ALG on routers (affects desk phones/SIP), and Wi-Fi signal strength. Run the test a few times, at the times calls go wrong, for a fair picture.</li>
-      <li><b>Privacy</b>: this page contacts Cloudflare, Twilio, Pusher, Intercom, AWS and Google STUN. Results stay in your browser unless you copy or download the report.</li>
+      <li><b>Routing</b>: flags when internet traffic leaves on a different continent from this computer’s timezone, or when the closest voice region is on another continent. Both usually point to a VPN, proxy or virtual desktop.</li>
+      <li><b>Extended monitor</b>: samples latency 4 times per second for 2–10 minutes without filtering out spikes, counts spikes and moments with no reply, and keeps a WebSocket open (with a keep-alive similar to the Aircall app’s) to catch firewalls or VPNs that cut long-lived connections, the usual cause of the app flipping to offline. That WebSocket goes to a neutral public echo server (<code>echo.websocket.org</code>), because Aircall’s providers close unauthenticated connections on their own.</li>
+      <li><b>Not covered</b>: real voice packet loss over UDP (this needs a real test call to a media server), deep packet inspection, SIP ALG on routers (affects desk phones/SIP), and Wi-Fi signal strength (browsers can’t read it; check it in the operating system). Run the test a few times, at the times calls go wrong, for a fair picture.</li>
+      <li><b>How to read the colours</b>: blue means the check found no problem, not that the connection is guaranteed to be fine. Amber is a risk, red is a problem, grey is information or a check that couldn’t run.</li>
+      <li><b>Privacy</b>: this page contacts Cloudflare, Twilio, Pusher, Intercom, AWS, Google STUN and (monitor only) echo.websocket.org. Results stay in your browser unless you copy or download the report.</li>
     </ul>
   </details>
 </main>
@@ -183,17 +228,30 @@ const CONFIG = {
     { label: "Pusher (ws-mt1.pusher.com)", url: "wss://ws-mt1.pusher.com/app/networktest?protocol=7&client=js&version=8.4.0" },
   ],
 
-  // Twilio voice edges (voice-js.<id>.twilio.com).
+  // Twilio voice edges (voice-js.<id>.twilio.com). area: EU, AM (Americas), AS, OC, AF.
   edges: [
-    { id: "ashburn",   name: "US East (Virginia)" },
-    { id: "umatilla",  name: "US West (Oregon)" },
-    { id: "dublin",    name: "Europe (Ireland)" },
-    { id: "frankfurt", name: "Europe (Germany)" },
-    { id: "sao-paulo", name: "South America (Brazil)" },
-    { id: "singapore", name: "Asia (Singapore)" },
-    { id: "tokyo",     name: "Asia (Japan)" },
-    { id: "sydney",    name: "Oceania (Australia)" },
+    { id: "ashburn",   name: "US East (Virginia)",     area: "AM" },
+    { id: "umatilla",  name: "US West (Oregon)",       area: "AM" },
+    { id: "dublin",    name: "Europe (Ireland)",       area: "EU" },
+    { id: "frankfurt", name: "Europe (Germany)",       area: "EU" },
+    { id: "sao-paulo", name: "South America (Brazil)", area: "AM" },
+    { id: "singapore", name: "Asia (Singapore)",       area: "AS" },
+    { id: "tokyo",     name: "Asia (Japan)",           area: "AS" },
+    { id: "sydney",    name: "Oceania (Australia)",    area: "OC" },
   ],
+
+  // Extended monitor.
+  monitor: {
+    intervalMs: 250,          // one latency sample every 250 ms
+    timeoutMs: 2000,          // no reply within 2 s = "no reply" (a call would lose audio)
+    spikeMs: 150,             // a spike = this much above the run's median latency
+    // Kept open for the whole run; the network closing it = long-lived connections being cut.
+    // Twilio/Pusher close unauthenticated sockets on their own (~45 s / instantly), so a neutral
+    // public echo server is used. A small message every heartbeatSeconds mimics Pusher's
+    // keep-alive (~120 s), so only cuts that would also hit the Aircall app are reported.
+    webSocket: "wss://echo.websocket.org/",
+    heartbeatSeconds: 100,
+  },
 
   // Optional ISP lookup (sends the user's IP to a third party). Set to null to disable.
   // Must return JSON with an "org" field, e.g. "https://ipinfo.io/json?token=YOUR_TOKEN".
@@ -211,6 +269,9 @@ const CONFIG = {
     edgeMs:    { good: 120, bad: 250, lower: true },
     downMbps:  { good: 5,   bad: 1,   lower: false },
     upMbps:    { good: 1,   bad: 0.3, lower: false },
+    // Extended monitor
+    spikesPer10Min: { good: 2,   bad: 6, lower: true },
+    monitorLossPct: { good: 0.5, bad: 2, lower: true },
   },
 };
 
@@ -442,14 +503,37 @@ function countryName(code) {
   try { return new Intl.DisplayNames(["en"], { type: "region" }).of(code) || code; } catch { return code; }
 }
 
+// Continent-level areas, used to spot traffic carried to another continent (VPN, proxy, virtual desktop).
+// Some countries belong to two areas because their timezones do (e.g. Russia, Turkey, Spain/Ceuta).
+const COUNTRY_AREAS = (() => {
+  const m = {};
+  const add = (area, list) => list.split(" ").forEach((c) => (m[c] ||= []).push(area));
+  add("EU", "AD AL AT AX BA BE BG BY CH CY CZ DE DK EE ES FI FO FR GB GG GI GR HR HU IE IM IS IT JE LI LT LU LV MC MD ME MK MT NL NO PL PT RO RS RU SE SI SJ SK SM TR UA VA XK");
+  add("AS", "AE AF AM AZ BD BH BN BT CN CY GE HK ID IL IN IQ IR JO JP KG KH KP KR KW KZ LA LB LK MM MN MO MV MY NP OM PH PK PS QA RU SA SG SY TH TJ TL TM TR TW UZ VN YE");
+  add("AF", "AO BF BI BJ BW CD CF CG CI CM CV DJ DZ EG EH ER ES ET GA GH GM GN GQ GW KE KM LR LS LY MA MG ML MR MU MW MZ NA NE NG RE RW SC SD SH SL SN SO SS ST SZ TD TG TN TZ UG YT ZA ZM ZW");
+  add("AM", "AG AI AR AW BB BL BM BO BQ BR BS BZ CA CL CO CR CU CW DM DO EC FK GD GF GL GP GT GY HN HT JM KN KY LC MF MQ MS MX NI PA PE PM PR PY SR SV SX TC TT US UY VC VE VG VI");
+  add("OC", "AS AU CK FJ FM GU KI MH MP NC NF NR NU NZ PF PG PN PW SB TK TO TV VU WF WS");
+  return m;
+})();
+const AREA_NAMES = { EU: "Europe", AS: "Asia / Middle East", AF: "Africa", AM: "the Americas", OC: "Oceania" };
+
+function timezoneArea(tz) {
+  if (!tz) return null;
+  if (/^Pacific\/(Honolulu|Johnston|Midway|Galapagos|Easter)$/.test(tz)) return "AM";
+  return { Europe: "EU", Asia: "AS", Africa: "AF", America: "AM", Australia: "OC", Pacific: "OC" }[tz.split("/")[0]] || null;
+}
+
 /* =========================================================================
    State and rendering
    ========================================================================= */
 const LABEL = { pass: "PASS", warn: "WARN", fail: "FAIL", skip: "SKIP", info: "INFO" };
-let state;
+let state;               // quick test
+let monitorState = null; // extended monitor
 
 function resetState() {
-  state = { startedAt: new Date().toISOString(), finishedAt: null, metrics: {}, sections: [], httpIp: null, idleLatency: null };
+  state = { ran: false, startedAt: new Date().toISOString(), finishedAt: null, metrics: {}, sections: [], httpIp: null, idleLatency: null,
+            tz: Intl.DateTimeFormat().resolvedOptions().timeZone, tzArea: null };
+  state.tzArea = timezoneArea(state.tz);
   $("#sections").replaceChildren();
   for (const id of ["udp", "latency", "jitter", "loss", "down", "up"]) setMetric(id, null);
 }
@@ -478,21 +562,26 @@ function detailsTable(d) {
   return h("details", { class: "more" }, h("summary", null, "Details"), h("div", { class: "tablewrap" }, table));
 }
 
+function renderCheck(c) {
+  return h("div", { class: "check" },
+    h("span", { class: "pill " + c.status }, LABEL[c.status]),
+    h("div", null,
+      h("div", { class: "ctitle" }, c.title),
+      c.summary ? h("div", { class: "csum" }, c.summary) : null,
+      c.advice && (c.status === "warn" || c.status === "fail" || c.status === "skip") ? h("div", { class: "advice" }, c.advice) : null,
+      c.details ? detailsTable(c.details) : null));
+}
+
+function makeAdder(listEl, section) {
+  return (c) => { section.checks.push(c); listEl.append(renderCheck(c)); };
+}
+
 function addSection(title) {
   const list = h("div", { class: "checks" });
   $("#sections").append(h("div", { class: "section" }, h("h2", null, title), list));
   const section = { title, checks: [] };
   state.sections.push(section);
-  return (c) => {
-    section.checks.push(c);
-    list.append(h("div", { class: "check" },
-      h("span", { class: "pill " + c.status }, LABEL[c.status]),
-      h("div", null,
-        h("div", { class: "ctitle" }, c.title),
-        c.summary ? h("div", { class: "csum" }, c.summary) : null,
-        c.advice && (c.status === "warn" || c.status === "fail" || c.status === "skip") ? h("div", { class: "advice" }, c.advice) : null,
-        c.details ? detailsTable(c.details) : null)));
-  };
+  return makeAdder(list, section);
 }
 
 /* =========================================================================
@@ -586,6 +675,18 @@ async function phaseIdentity(add) {
     if (trace.warp && trace.warp !== "off") {
       add({ title: "VPN", status: "warn", summary: "Cloudflare WARP (a VPN) is active.",
         advice: "VPNs add latency and often break or degrade voice traffic. Exclude Aircall from the VPN, or turn it off for calls." });
+    }
+    // Routing: does traffic leave on the same continent as this computer's timezone?
+    const areas = COUNTRY_AREAS[trace.loc];
+    if (state.tzArea && areas) {
+      if (!areas.includes(state.tzArea)) {
+        add({ title: "Exit location vs. timezone", status: "warn",
+          summary: `Internet traffic leaves in ${countryName(trace.loc)}, but this computer’s timezone is ${state.tz} (${AREA_NAMES[state.tzArea]}).`,
+          advice: "This usually means a VPN, proxy or virtual desktop (Citrix, Azure Virtual Desktop, other VDI) is carrying traffic to another continent, which adds delay to every call. Exclude Aircall from the VPN or proxy, or run Aircall on the local computer instead of inside the virtual desktop. If the user is travelling with the clock still on home time, this can be ignored." });
+      } else {
+        add({ title: "Exit location vs. timezone", status: "pass",
+          summary: `Traffic leaves in ${countryName(trace.loc)}, consistent with the timezone ${state.tz}.` });
+      }
     }
   } else {
     add({ title: "Public IP (web traffic)", status: "skip", summary: "Could not reach Cloudflare to identify the connection.",
@@ -722,7 +823,7 @@ async function phaseEdges(add, progress) {
       ms = median(warm) ?? cold.ms;
     }
     progress(`Measuring voice regions (${++done}/${CONFIG.edges.length})`);
-    return { region: e.name, edge: e.id, ms: ms == null ? null : round(ms), result: cold.ok ? "ok" : cold.error };
+    return { region: e.name, edge: e.id, area: e.area, ms: ms == null ? null : round(ms), result: cold.ok ? "ok" : cold.error };
   });
   const reachable = rows.filter((r) => r.ms != null).sort((a, b) => a.ms - b.ms);
   if (!reachable.length) {
@@ -735,7 +836,15 @@ async function phaseEdges(add, progress) {
   add({ title: "Voice regions", status,
     summary: `Closest: ${best.region} · edge “${best.edge}” · ~${best.ms} ms.`,
     advice: "Even the closest voice region is slow to reach. Typical causes: a VPN or proxy routing traffic through another country, satellite internet, or a congested connection.",
-    details: rows.sort((a, b) => (a.ms ?? 1e9) - (b.ms ?? 1e9)).map((r) => ({ ...r, ms: r.ms ?? "—", _status: r.ms == null ? "fail" : null })) });
+    details: rows.sort((a, b) => (a.ms ?? 1e9) - (b.ms ?? 1e9)).map(({ area, ...r }) => ({ ...r, ms: r.ms ?? "—", _status: r.ms == null ? "fail" : null })) });
+
+  // Routing: closest voice region on another continent than the computer's timezone.
+  // Only checked where Twilio has edges on the same continent (Europe, Americas, Oceania).
+  if (["EU", "AM", "OC"].includes(state.tzArea) && best.area && best.area !== state.tzArea) {
+    add({ title: "Voice region vs. location", status: "warn",
+      summary: `The closest voice region is ${best.region}, but this computer’s timezone (${state.tz}) is in ${AREA_NAMES[state.tzArea]}.`,
+      advice: "Traffic is probably being carried to another continent (VPN, proxy or virtual desktop) before it reaches the internet, so calls travel much further than they should. Route Aircall traffic directly from the user’s location." });
+  }
 }
 
 async function phaseLatency(add, progress) {
@@ -824,7 +933,12 @@ const PHASES = [
   { title: "Upload & load",            run: (a, p) => phaseTransfer("up", a, p) },
 ];
 
-function allChecks() { return state.sections.flatMap((s) => s.checks); }
+function allChecks() {
+  return [
+    ...(state?.ran ? state.sections.flatMap((s) => s.checks) : []),
+    ...(monitorState?.done ? monitorState.section.checks : []),
+  ];
+}
 
 function setVerdict() {
   const cs = allChecks();
@@ -836,19 +950,27 @@ function setVerdict() {
     $("#verdict-sub").textContent = `${fails.length} issue${fails.length > 1 ? "s" : ""} likely to affect calls: ${fails.map((c) => c.title).join(", ")}.`;
   } else if (warns.length) {
     v.className = "verdict warn";
-    $("#verdict-title").textContent = "Ready, with some risks";
-    $("#verdict-sub").textContent = `Calls should work. Review: ${warns.map((c) => c.title).join(", ")}.`;
+    $("#verdict-title").textContent = "Risks found";
+    $("#verdict-sub").textContent = `Calls may work, but review: ${warns.map((c) => c.title).join(", ")}.`;
   } else {
     v.className = "verdict pass";
-    $("#verdict-title").textContent = "Ready for calls";
-    $("#verdict-sub").textContent = "No issues found on this computer and network.";
+    $("#verdict-title").textContent = "No problems detected";
+    $("#verdict-sub").textContent = "This test can’t catch everything: short dropouts, Wi-Fi signal problems and traffic inspection can be missed. If calls still have issues, run the extended monitor below while they happen.";
   }
   return { fails: fails.length, warns: warns.length };
 }
 
+function setBusy(busy) {
+  $("#run").disabled = busy;
+  $("#mon-start").disabled = busy;
+  $("#mon-duration").disabled = busy;
+  const hasResults = !!(state?.ran || monitorState?.done);
+  $("#copy").disabled = busy || !hasResults;
+  $("#json").disabled = busy || !hasResults;
+}
+
 async function runAll() {
-  const runBtn = $("#run");
-  runBtn.disabled = true; $("#copy").disabled = true; $("#json").disabled = true;
+  setBusy(true);
   resetState();
   performance.setResourceTimingBufferSize?.(5000);
   $("#verdict").className = "verdict";
@@ -869,26 +991,299 @@ async function runAll() {
   $("#bar").style.width = "100%";
   $("#step").textContent = `Finished ${new Date().toLocaleString()}`;
   state.finishedAt = new Date().toISOString();
+  state.ran = true;
   state.verdict = setVerdict();
-  runBtn.disabled = false; runBtn.textContent = "Run again";
-  $("#copy").disabled = false; $("#json").disabled = false;
+  $("#run").textContent = "Run again";
+  setBusy(false);
 }
 
+/* =========================================================================
+   Extended monitor
+   ========================================================================= */
+const MON = { stop: false };
+const fmtClock = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+function drawChart() {
+  const m = monitorState, cv = $("#mon-chart");
+  if (!m || cv.closest("[hidden]")) return;
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H) return;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d");
+  g.scale(dpr, dpr);
+  g.clearRect(0, 0, W, H);
+  const css = getComputedStyle(document.documentElement), col = (v) => css.getPropertyValue(v).trim();
+  const ok = m.samples.filter((s) => s.ms != null).map((s) => s.ms);
+  const base = median(ok) ?? 0, limit = base + CONFIG.monitor.spikeMs;
+  const ymax = Math.max(limit * 1.25, quantile(ok, 0.995) ?? 0, 60);
+  const xmax = m.minutes * 60;
+  const pad = { l: 46, r: 8, t: 8, b: 20 }, pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const X = (t) => pad.l + (Math.min(t, xmax) / xmax) * pw;
+  const Y = (v) => pad.t + ph - (Math.min(v, ymax) / ymax) * ph;
+
+  g.font = `11px ${css.getPropertyValue("--font-sans")}`;
+  g.lineWidth = 1;
+  g.strokeStyle = col("--border"); g.fillStyle = col("--muted");
+  for (const v of [0, ymax / 2, ymax]) {
+    g.beginPath(); g.moveTo(pad.l, Y(v)); g.lineTo(W - pad.r, Y(v)); g.stroke();
+    g.fillText(`${Math.round(v)} ms`, 2, Y(v) + 4);
+  }
+  const step = m.minutes <= 2 ? 30 : 60;
+  for (let t = 0; t <= xmax; t += step) g.fillText(fmtClock(t), Math.min(X(t) - 12, W - 34), H - 5);
+
+  // Spike threshold
+  g.strokeStyle = col("--warn"); g.setLineDash([4, 4]);
+  g.beginPath(); g.moveTo(pad.l, Y(limit)); g.lineTo(W - pad.r, Y(limit)); g.stroke();
+  g.setLineDash([]);
+
+  // No-reply bars
+  g.fillStyle = col("--fail");
+  for (const s of m.samples) if (s.ms == null) g.fillRect(X(s.t) - 1, pad.t, 2, ph);
+
+  // Latency line
+  g.strokeStyle = col("--pass"); g.lineWidth = 1.25;
+  g.beginPath();
+  let pen = false;
+  for (const s of m.samples) {
+    if (s.ms == null) { pen = false; continue; }
+    if (pen) g.lineTo(X(s.t), Y(s.ms)); else { g.moveTo(X(s.t), Y(s.ms)); pen = true; }
+  }
+  g.stroke();
+
+  // Spike dots
+  g.fillStyle = col("--warn");
+  for (const s of m.samples) if (s.ms != null && s.ms > limit) { g.beginPath(); g.arc(X(s.t), Y(s.ms), 2.5, 0, 7); g.fill(); }
+}
+
+function monitorLive(elapsedS) {
+  const m = monitorState;
+  const ok = m.samples.filter((s) => s.ms != null).map((s) => s.ms);
+  const base = median(ok);
+  const lost = m.samples.length - ok.length;
+  const spikes = base == null ? 0 : ok.filter((v) => v > base + CONFIG.monitor.spikeMs).length;
+  $("#mon-step").textContent =
+    `${fmtClock(elapsedS)} / ${fmtClock(m.minutes * 60)} · ${m.samples.length} samples · median ${base == null ? "—" : round(base) + " ms"} · ` +
+    `spike samples ${spikes} · no reply ${lost}` + (document.hidden ? " · tab hidden (paused accuracy)" : "");
+  $("#mon-bar").style.width = `${Math.min(100, (elapsedS / (m.minutes * 60)) * 100)}%`;
+}
+
+async function runMonitor() {
+  const minutes = +$("#mon-duration").value;
+  const durMs = minutes * 60e3;
+  const C = CONFIG.monitor;
+  monitorState = { startedAt: new Date().toISOString(), minutes, samples: [], events: [], ws: null, done: false,
+                   section: { title: "Extended monitor", checks: [] } };
+  $("#mon-checks").replaceChildren();
+  $("#mon-viz").hidden = false;
+  setBusy(true);
+  $("#mon-stop").disabled = false;
+  MON.stop = false;
+  performance.setResourceTimingBufferSize?.(5000);
+
+  // Warm up: the first requests include DNS, TLS and connection setup and would look like spikes.
+  $("#mon-step").textContent = "Warming up the connection…";
+  for (let i = 0; i < 4; i++) { await cfPing(3000); await sleep(150); }
+
+  const t0 = now();
+  const at = () => round((now() - t0) / 1000, 1);
+  const ev = (type, detail = "") => monitorState.events.push({ atSeconds: at(), event: type, detail });
+
+  // Keep the screen awake so the OS doesn't suspend the tab.
+  let wakeLock = null;
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {}
+
+  const onOnline = () => ev("browser online");
+  const onOffline = () => ev("browser offline");
+  const onVis = () => ev(document.hidden ? "tab hidden" : "tab visible");
+  const onConn = () => ev("network changed", navigator.connection?.effectiveType || "");
+  window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
+  document.addEventListener("visibilitychange", onVis);
+  navigator.connection?.addEventListener?.("change", onConn);
+
+  // Long-lived WebSocket with a sparse heartbeat, like the app's real-time connection.
+  const wsInfo = { url: C.webSocket, openedAtSeconds: null, closedAtSeconds: null, closeCode: null, error: null };
+  let ws, hb, closingOurselves = false;
+  try {
+    ws = new WebSocket(C.webSocket);
+    ws.onopen = () => {
+      wsInfo.openedAtSeconds = at();
+      hb = setInterval(() => { try { ws.send("ping"); } catch {} }, C.heartbeatSeconds * 1000);
+    };
+    ws.onerror = () => { if (wsInfo.openedAtSeconds == null) wsInfo.error = "could not connect"; };
+    ws.onclose = (e) => {
+      if (closingOurselves || wsInfo.closedAtSeconds != null) return;
+      wsInfo.closedAtSeconds = at(); wsInfo.closeCode = e.code;
+      ev("long-lived WebSocket closed", `code ${e.code}`);
+    };
+  } catch (e) { wsInfo.error = e.message; }
+
+  let n = 0, lastUi = 0;
+  while (!MON.stop && now() - t0 < durMs) {
+    const ts = now();
+    const p = await cfPing(C.timeoutMs);
+    monitorState.samples.push({ t: round((ts - t0) / 1000, 2), ms: p.ok ? round(p.ms) : null, hidden: document.hidden });
+    if (++n % 200 === 0) performance.clearResourceTimings();
+    if (now() - lastUi > 1000) { monitorLive((now() - t0) / 1000); drawChart(); lastUi = now(); }
+    const wait = C.intervalMs - (now() - ts);
+    if (wait > 0) await sleep(wait);
+  }
+
+  monitorState.durationSeconds = round((now() - t0) / 1000, 1);
+  monitorState.stoppedEarly = MON.stop;
+  closingOurselves = true;
+  clearInterval(hb);
+  try { ws && ws.close(); } catch {}
+  try { await wakeLock?.release(); } catch {}
+  window.removeEventListener("online", onOnline);
+  window.removeEventListener("offline", onOffline);
+  document.removeEventListener("visibilitychange", onVis);
+  navigator.connection?.removeEventListener?.("change", onConn);
+  monitorState.ws = wsInfo;
+
+  monitorLive(monitorState.durationSeconds);
+  $("#mon-bar").style.width = "100%";
+  analyzeMonitor();
+  monitorState.done = true;
+  drawChart();
+  $("#mon-step").textContent += ` · finished ${new Date().toLocaleTimeString()}`;
+  $("#mon-stop").disabled = true;
+  $("#mon-start").textContent = "Run monitor again";
+  setBusy(false);
+  setVerdict();
+}
+
+function analyzeMonitor() {
+  const m = monitorState, C = CONFIG.monitor, T = CONFIG.thresholds;
+  const add = makeAdder($("#mon-checks"), m.section);
+  const vis = m.samples.filter((s) => !s.hidden);
+  const hiddenShare = m.samples.length ? 1 - vis.length / m.samples.length : 0;
+  const minutes = m.durationSeconds / 60;
+
+  if (vis.length < 40) {
+    add({ title: "Extended monitor", status: "skip", summary: "Not enough samples were collected (the run was too short or the tab was in the background).",
+      advice: "Run the monitor for at least 2 minutes and keep this tab visible." });
+    return;
+  }
+
+  const ok = vis.filter((s) => s.ms != null).map((s) => s.ms);
+  const base = median(ok) ?? 0;
+  const limit = base + C.spikeMs;
+
+  // Group consecutive bad samples (no reply, or above the spike limit) into events.
+  const events = [];
+  let cur = null;
+  for (const s of vis) {
+    const bad = s.ms == null || s.ms > limit;
+    if (!bad) continue;
+    if (cur && s.t - cur.end <= 1.0) {
+      cur.end = s.t; cur.samples++; if (s.ms == null) cur.noReply++; else cur.peak = Math.max(cur.peak, s.ms);
+    } else {
+      cur = { start: s.t, end: s.t, samples: 1, noReply: s.ms == null ? 1 : 0, peak: s.ms ?? 0 };
+      events.push(cur);
+    }
+  }
+  const evRow = (e) => ({
+    at: fmtClock(e.start),
+    duration: `~${round(e.end - e.start + (e.noReply ? C.timeoutMs : C.intervalMs) / 1000, 1)} s`,
+    worst: e.noReply ? "no reply" : `${round(e.peak)} ms`,
+  });
+  const outages = events.filter((e) => e.noReply > 0);
+  const spikes = events.filter((e) => e.noReply === 0);
+  const spikesPer10 = (spikes.length / Math.max(minutes, 0.5)) * 10;
+  const lossPct = ((vis.length - ok.length) / vis.length) * 100;
+
+  // Jitter without trimming: here every spike counts.
+  let jsum = 0, jn = 0;
+  for (let i = 1; i < vis.length; i++) if (vis[i].ms != null && vis[i - 1].ms != null) { jsum += Math.abs(vis[i].ms - vis[i - 1].ms); jn++; }
+  const jit = jn ? jsum / jn : null;
+
+  m.stats = { minutes: round(minutes, 1), samples: vis.length, medianMs: round(base), p95Ms: round(quantile(ok, 0.95)), p99Ms: round(quantile(ok, 0.99)),
+              maxMs: ok.length ? round(Math.max(...ok)) : null, jitterMs: round(jit, 1), noReplyPct: round(lossPct, 2),
+              spikeEvents: spikes.length, outageEvents: outages.length };
+
+  add({ title: "Run summary", status: "info",
+    summary: `${round(minutes, 1)} min · ${vis.length} samples · median ${round(base)} ms · p95 ${m.stats.p95Ms} ms · p99 ${m.stats.p99Ms} ms · max ${m.stats.maxMs} ms` +
+             (m.stoppedEarly ? " · stopped early" : "") });
+
+  add({ title: "Dropouts", status: outages.length === 0 ? "pass" : outages.length === 1 ? "warn" : "fail",
+    summary: outages.length
+      ? `${outages.length} moment${outages.length > 1 ? "s" : ""} where the connection stopped answering for ${C.timeoutMs / 1000} s or more.`
+      : `No moments where the connection stopped answering for ${C.timeoutMs / 1000} s or more.`,
+    advice: "A call in progress would have lost audio, or dropped, at these moments. Common causes: Wi-Fi roaming or interference, an unstable internet line, a firewall resetting connections, or the computer’s power saving.",
+    details: outages.length ? outages.map(evRow) : null });
+
+  add({ title: "Latency spikes", status: grade(spikesPer10, T.spikesPer10Min),
+    summary: `${spikes.length} spike${spikes.length === 1 ? "" : "s"} above ${round(limit)} ms (median + ${C.spikeMs} ms), about ${round(spikesPer10, 1)} per 10 minutes.`,
+    advice: "Each spike is a moment where call audio would turn robotic, choppy or delayed. Regular spikes usually come from weak or busy Wi-Fi, others on the network downloading or uploading without traffic prioritisation, or background apps (cloud backup, VPN clients, updates).",
+    details: spikes.length ? spikes.slice(0, 50).map(evRow) : null });
+
+  add({ title: "Jitter (unfiltered)", status: grade(jit, T.jitterMs),
+    summary: `${round(jit)} ms average change between consecutive samples, every spike included.`,
+    advice: "Unstable timing is what makes audio sound robotic. Try Ethernet instead of Wi-Fi, and check what else is using the connection." });
+
+  add({ title: "No-reply rate", status: grade(lossPct, T.monitorLossPct),
+    summary: `${round(lossPct, 2)}% of samples got no reply within ${C.timeoutMs / 1000} s.`,
+    advice: "Requests going unanswered point to an unstable connection: the kind that makes words drop out of calls." });
+
+  const w = m.ws;
+  const wsHost = hostOf(w.url.replace(/^wss/, "https"));
+  if (w.openedAtSeconds == null) {
+    add({ title: "Long-lived connection", status: "skip",
+      summary: `Could not open the test WebSocket to ${wsHost}, so long-lived connections were not tested.`,
+      advice: "This test server is not an Aircall host, so it may simply be blocked by a filter. The WebSocket checks in the quick test cover Aircall’s own hosts." });
+  } else if (w.closedAtSeconds != null) {
+    add({ title: "Long-lived connection", status: "fail",
+      summary: `The network closed a long-lived WebSocket after ${round(w.closedAtSeconds - w.openedAtSeconds)} s (code ${w.closeCode}), despite a keep-alive every ${C.heartbeatSeconds} s.`,
+      advice: "Something on the network (firewall, proxy, VPN or router) is cutting long-lived connections. This makes the Aircall app flip to offline or miss incoming calls. Raise the idle/TCP session timeout for *.aircall.io, *.twilio.com and *.pusher.com (at least 1 hour) and exclude them from SSL inspection.",
+      details: { testServer: wsHost, note: "Neutral echo server (not an Aircall host); a rare server-side restart can also close it, so re-run to confirm." } });
+  } else {
+    add({ title: "Long-lived connection", status: "pass",
+      summary: `A WebSocket with a keep-alive every ${C.heartbeatSeconds} s stayed open for the whole run (${round(minutes, 1)} min).` });
+  }
+
+  const netEvents = m.events.filter((e) => /online|offline|network|WebSocket/.test(e.event));
+  if (netEvents.length) {
+    add({ title: "Network events", status: "warn", summary: `${netEvents.length} network event${netEvents.length > 1 ? "s" : ""} during the run.`,
+      advice: "The browser saw the connection go offline or change type. Calls in progress would usually drop.",
+      details: netEvents.map((e) => ({ at: fmtClock(e.atSeconds), event: e.event, detail: e.detail })) });
+  }
+
+  if (hiddenShare > 0.1) {
+    add({ title: "Background tab", status: "warn", summary: `The tab was in the background for ${round(hiddenShare * 100)}% of the run; those samples were ignored.`,
+      advice: "Browsers slow down background tabs, which distorts timing. Keep this tab visible while the monitor runs." });
+  }
+}
+
+/* =========================================================================
+   Report and export
+   ========================================================================= */
 function reportText() {
   const lines = [];
-  lines.push(`Network Readiness Test: ${new Date(state.startedAt).toLocaleString()}`);
+  lines.push(`Network Readiness Test: ${new Date().toLocaleString()}`);
   lines.push(`Result: ${$("#verdict-title").textContent}. ${$("#verdict-sub").textContent}`);
-  const m = state.metrics, f = (k) => m[k] ? `${m[k].value}${m[k].unit}` : "n/a";
-  lines.push(`UDP ${f("udp")} | Latency ${f("latency")} | Jitter ${f("jitter")} | Loss ${f("loss")} | Down ${f("down")} | Up ${f("up")}`);
-  for (const s of state.sections) {
-    if (!s.checks.length) continue;
-    lines.push("", `## ${s.title}`);
-    for (const c of s.checks) {
-      lines.push(`[${LABEL[c.status]}] ${c.title}: ${c.summary || ""}`);
-      if (Array.isArray(c.details) && (c.status === "fail" || c.status === "warn")) {
-        for (const r of c.details) if (r._status === "fail" || r._status === "warn") lines.push(`    - ${Object.entries(r).filter(([k]) => k !== "_status").map(([, v]) => v ?? "—").join(" | ")}`);
+  lines.push(`Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+  const pushCheck = (c) => {
+    lines.push(`[${LABEL[c.status]}] ${c.title}: ${c.summary || ""}`);
+    if (Array.isArray(c.details) && (c.status === "fail" || c.status === "warn")) {
+      for (const r of c.details.slice(0, 20)) {
+        if (r._status && r._status !== "fail" && r._status !== "warn") continue;
+        lines.push(`    - ${Object.entries(r).filter(([k]) => k !== "_status").map(([, v]) => v ?? "—").join(" | ")}`);
       }
     }
+  };
+  if (state?.ran) {
+    const m = state.metrics, f = (k) => m[k] ? `${m[k].value}${m[k].unit}` : "n/a";
+    lines.push(`UDP ${f("udp")} | Latency ${f("latency")} | Jitter ${f("jitter")} | Loss ${f("loss")} | Down ${f("down")} | Up ${f("up")}`);
+    for (const s of state.sections) {
+      if (!s.checks.length) continue;
+      lines.push("", `## ${s.title}`);
+      s.checks.forEach(pushCheck);
+    }
+  }
+  if (monitorState?.done) {
+    lines.push("", `## Extended monitor (started ${new Date(monitorState.startedAt).toLocaleString()})`);
+    monitorState.section.checks.forEach(pushCheck);
   }
   lines.push("", `User agent: ${navigator.userAgent}`);
   return lines.join("\n");
@@ -905,16 +1300,28 @@ async function copyReport() {
 }
 
 function downloadJson() {
-  const data = { ...state, userAgent: navigator.userAgent, config: { ...CONFIG, turnServers: CONFIG.turnServers.map((t) => ({ urls: t.urls })) } };
+  const data = {
+    generatedAt: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    quickTest: state?.ran ? state : null,
+    monitor: monitorState?.done ? monitorState : null,
+    config: { ...CONFIG, turnServers: CONFIG.turnServers.map((t) => ({ urls: t.urls })) },
+  };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
-  const a = h("a", { href: url, download: `network-test-${state.startedAt.replace(/[:.]/g, "-")}.json` });
+  const a = h("a", { href: url, download: `network-test-${new Date().toISOString().replace(/[:.]/g, "-")}.json` });
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+resetState();
 $("#run").addEventListener("click", runAll);
+$("#mon-start").addEventListener("click", runMonitor);
+$("#mon-stop").addEventListener("click", () => { MON.stop = true; $("#mon-stop").disabled = true; });
 $("#copy").addEventListener("click", copyReport);
 $("#json").addEventListener("click", downloadJson);
+window.addEventListener("resize", () => drawChart());
 </script>
 </body>
 </html>
+```

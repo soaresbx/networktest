@@ -556,7 +556,7 @@ function detailsTable(d) {
   } else {
     table = h("table", null, h("tbody", null, Object.entries(d).map(([k, v]) => h("tr", null, h("th", null, k), h("td", null, fmt(v))))));
   }
-  return h("details", { class: "more" }, h("summary", null, "Details"), h("div", { class: "tablewrap" }, table));
+  return h("details", { class: "more", open: true }, h("summary", null, "Details"), h("div", { class: "tablewrap" }, table));
 }
 
 function renderCheck(c) {
